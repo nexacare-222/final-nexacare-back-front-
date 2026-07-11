@@ -1,0 +1,218 @@
+
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>NexaCare</title>
+    
+    <!-- PWA Meta Tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="NexaCare" />
+    <link rel="apple-touch-icon" href="https://img.icons8.com/fluency/512/pulse.png" />
+    <meta name="theme-color" content="#1a1a1a" />
+    <link rel="manifest" href="/manifest.json" />
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              brand: {
+                purple: '#4B3FAE',
+                purpleDark: '#3E3495',
+                purpleSoft: '#E9E7F8',
+                green: '#CBEF8A',
+                greenDark: '#9FD45A',
+                greenSoft: '#EAF7D6',
+              },
+              neutral: {
+                surface: '#FFFFFF',
+                surfaceSoft: '#F4F7FA',
+                textPrimary: '#1F2937',
+                textSecondary: '#6B7280',
+                textMuted: '#9CA3AF',
+                borderDefault: '#D1D9E6',
+                dividerSubtle: '#E5EAF1',
+              },
+              status: {
+                criticalBg: '#FDE2E2',
+                criticalText: '#B91C1C',
+                warningBg: '#FEF3C7',
+                warningText: '#92400E',
+                successBg: '#DCFCE7',
+                successText: '#166534',
+                infoBg: '#E0F2F1',
+                infoText: '#006D42',
+              }
+            },
+            fontFamily: {
+              sans: ['"Myriad Pro"', '"Source Sans 3"', 'sans-serif'],
+              heading: ['"Myriad Pro"', '"Source Sans 3"', 'sans-serif'],
+            },
+            fontSize: {
+              'xs': ['12px', { lineHeight: '16px' }],
+              'sm': ['14px', { lineHeight: '20px' }],
+              'base': ['16px', { lineHeight: '24px' }],
+              'lg': ['18px', { lineHeight: '28px' }],
+              'xl': ['24px', { lineHeight: '32px' }],
+              '2xl': ['28px', { lineHeight: '36px' }],
+              '3xl': ['32px', { lineHeight: '40px' }],
+              '4xl': ['36px', { lineHeight: '44px' }],
+            },
+            boxShadow: {
+              'glow': '0 0 20px rgba(75, 63, 174, 0.15)',
+              'hard': '4px 4px 0px 0px rgba(0,0,0,0.05)',
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+      body { 
+        font-family: 'Myriad Pro', 'Source Sans 3', sans-serif; 
+        background-color: #C6D5DE; 
+        color: #1F2937; 
+        font-size: 16px; 
+        transition: background-color 0.3s, color 0.3s; 
+        -webkit-tap-highlight-color: transparent;
+        overflow-x: hidden;
+      }
+      h1, h2, h3, h4, h5, h6 { font-family: 'Myriad Pro', 'Source Sans 3', sans-serif; letter-spacing: -0.01em; }
+      
+      * { transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform; transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1); transition-duration: 200ms; }
+
+      ::-webkit-scrollbar { width: 6px; height: 6px; }
+      ::-webkit-scrollbar-track { background: transparent; }
+      ::-webkit-scrollbar-thumb { background: #D1D9E6; border-radius: 3px; }
+      ::-webkit-scrollbar-thumb:hover { background: #9CA3AF; }
+
+      .scrollbar-hide::-webkit-scrollbar { display: none; }
+      .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
+      @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      .animate-fade-in { animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+      
+      .dark body {
+        background-color: #212121 !important;
+        color: #e2e8f0;
+      }
+
+      /* Dock Style Orientation and Hover Animation */
+      .container-items {
+        display: flex;
+        justify-content: center;
+        align-items: flex-end;
+        gap: 6px;
+        transform-style: preserve-3d;
+        transform: perspective(1000px);
+        padding: 16px;
+        background: rgba(255, 255, 255, 0.2);
+        backdrop-filter: blur(10px);
+        border-radius: 28px;
+        width: fit-content;
+        margin: 0 auto;
+        min-height: 80px;
+      }
+
+      .item-color {
+        position: relative;
+        flex-shrink: 0;
+        width: 94px;
+        height: 46px;
+        border: none;
+        outline: none;
+        transition: 400ms cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: transparent;
+        z-index: 10;
+        transform-origin: bottom center;
+        padding: 0 4px;
+      }
+
+      .item-color::after {
+        position: absolute;
+        content: "";
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        background-color: var(--color);
+        border-radius: 14px;
+        transform: scale(1);
+        pointer-events: none;
+        transition: 400ms cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        z-index: -1;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+      }
+
+      .item-color.active::after {
+        box-shadow: 0 0 15px rgba(255, 255, 255, 0.4), inset 0 0 0 2px rgba(255, 255, 255, 0.6);
+        background-image: linear-gradient(to bottom, rgba(255,255,255,0.2), transparent);
+      }
+
+      .item-color::before { display: none; content: ""; }
+
+      .item-color:hover {
+        transform: scale(1.3) translateY(-12px);
+        z-index: 99999;
+      }
+
+      .item-color:active::after {
+        transform: scale(0.95);
+      }
+
+      /* Adjacent Magnification Effect */
+      .item-color:hover + .item-color {
+        transform: scale(1.15) translateY(-6px);
+        z-index: 9999;
+      }
+
+      .item-color:hover + .item-color + .item-color {
+        transform: scale(1.05) translateY(-3px);
+        z-index: 999;
+      }
+
+      .item-color:has(+ .item-color:hover) {
+        transform: scale(1.15) translateY(-6px);
+        z-index: 9999;
+      }
+
+      .item-color:has(+ .item-color + .item-color:hover) {
+        transform: scale(1.05) translateY(-3px);
+        z-index: 999;
+      }
+
+      .item-color-text {
+        font-weight: 800;
+        font-size: 9.5px;
+        color: #1F2937;
+        z-index: 10;
+        pointer-events: none;
+        letter-spacing: -0.01em;
+        text-align: center;
+        padding: 0 6px;
+        line-height: 1.1;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>

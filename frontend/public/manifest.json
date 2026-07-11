@@ -1,0 +1,56 @@
+
+{
+  "id": "nexacare-hospital-system",
+  "name": "NexaCare Hospital Management",
+  "short_name": "NexaCare",
+  "description": "Secure, real-time hospital patient management and communication system.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#1a1a1a",
+  "theme_color": "#1a1a1a",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "https://img.icons8.com/fluency/192/pulse.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "https://img.icons8.com/fluency/512/pulse.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "https://images.unsplash.com/photo-1516549655169-df83a0774514?q=80&w=1000&auto=format&fit=crop",
+      "sizes": "1000x600",
+      "type": "image/jpeg",
+      "form_factor": "wide",
+      "label": "NexaCare Administrative Dashboard"
+    },
+    {
+      "src": "https://images.unsplash.com/photo-1505751172107-57322a36b30c?q=80&w=600&auto=format&fit=crop",
+      "sizes": "600x1000",
+      "type": "image/jpeg",
+      "form_factor": "narrow",
+      "label": "NexaCare Patient Mobile View"
+    }
+  ],
+  "categories": ["medical", "productivity"],
+  "shortcuts": [
+    {
+      "name": "My Patients",
+      "url": "/?tab=my-patients",
+      "icons": [{ "src": "https://img.icons8.com/fluency/192/pulse.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Quick Vitals",
+      "url": "/?action=vitals",
+      "icons": [{ "src": "https://img.icons8.com/fluency/192/pulse.png", "sizes": "192x192" }]
+    }
+  ]
+}

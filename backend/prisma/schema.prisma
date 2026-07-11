@@ -1,0 +1,429 @@
+// ============================================================================
+// NexaCare — Production Prisma Schema
+// PostgreSQL + Prisma ORM
+// Maps 1:1 onto the frontend's types.ts domain models (Patient, CareEvent,
+// LabReport, User, MovementLog, Notification), plus supporting entities
+// (ChatMessage, RefreshToken, AuditLog) needed for a real backend.
+// ============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+  previewFeatures = ["omitApi"]
+  // Global Omit API: passwordHash is excluded from every
+  // query result by default across the whole app. Call sites that genuinely
+  // need it (login/password-change) must explicitly opt back in per-query.
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ----------------------------------------------------------------------------
+// Enums
+// ----------------------------------------------------------------------------
+
+enum UserRole {
+  ADMIN
+  DOCTOR
+  NURSE
+  PATIENT_PARTY
+  STAFF
+}
+
+enum AccountStatus {
+  ACTIVE
+  SUSPENDED
+  PENDING_VERIFICATION
+  DEACTIVATED
+}
+
+enum Gender {
+  Male
+  Female
+  Other
+}
+
+enum Severity {
+  Stable
+  Monitor
+  Critical
+}
+
+enum CareEventPriority {
+  ROUTINE
+  URGENT
+}
+
+enum CareEventStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  MISSED
+}
+
+enum MedicationStatus {
+  PENDING
+  GIVEN
+}
+
+enum LabReportCategory {
+  Pathology
+  Radiology
+  Microbiology
+  Biochemistry
+}
+
+enum LabReportStatus {
+  COMPLETED
+  PENDING
+}
+
+enum NotificationType {
+  ALERT
+  NEW_MESSAGE
+  TASK_ASSIGNED
+}
+
+enum ChatChannel {
+  FAMILY
+  TEAM
+}
+
+enum AttachmentType {
+  PDF
+  IMAGE
+}
+
+enum BillingStatus {
+  CLEARED
+  PENDING
+  REVIEW
+}
+
+// ----------------------------------------------------------------------------
+// User
+// ----------------------------------------------------------------------------
+
+model User {
+  id           String        @id @default(cuid())
+  name         String
+  email        String        @unique
+  passwordHash String
+  role         UserRole
+  status       AccountStatus @default(ACTIVE)
+
+  phone String?
+  age   Int?
+
+  // If this account belongs to a family member tied to a single patient
+  linkedPatientId String?
+  linkedPatient   Patient? @relation("PatientPartyLink", fields: [linkedPatientId], references: [id], onDelete: SetNull)
+
+  // Staff-specific fields
+  staffCategory  String?
+  specialization String?
+  dob            String?
+  aadharNumber   String?
+  address        String?
+  timings        String?
+  weekSchedule   String[]
+  isOnline       Boolean  @default(false)
+  department     String?
+  avatar         String?
+
+  // Refresh-token rotation / revocation bookkeeping
+  refreshTokenVersion Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations where this user is the actor
+  refreshTokens        RefreshToken[]
+  auditLogs             AuditLog[]
+  assignedAsDoctor      Patient[]        @relation("AssignedDoctor")
+  assignedAsNurse       PatientNurse[]
+  movementsPerformed    MovementLog[]    @relation("MovedByAdmin")
+  careEventsAsDoctor    CareEvent[]      @relation("CareEventDoctor")
+  careEventsAsNurse     CareEvent[]      @relation("CareEventNurse")
+  notifications         Notification[]
+  chatMessagesSent      ChatMessage[]
+
+  @@index([role])
+  @@index([status])
+  @@index([linkedPatientId])
+}
+
+// ----------------------------------------------------------------------------
+// Refresh tokens — one row per issued refresh token (enables rotation +
+// reuse-detection + per-device revocation instead of blind trust in a JWT).
+// ----------------------------------------------------------------------------
+
+model RefreshToken {
+  id            String    @id @default(cuid())
+  jti           String    @unique
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt     DateTime
+  revokedAt     DateTime?
+  replacedByJti String?
+  userAgent     String?
+  ipAddress     String?
+  createdAt     DateTime  @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+// ----------------------------------------------------------------------------
+// Patient
+// ----------------------------------------------------------------------------
+
+model Patient {
+  id                  String   @id // e.g. PAT-2026-00042, generated at app layer
+  name                String
+  age                 Int
+  gender              Gender
+  admissionTimestamp  DateTime
+  currentLocation     String
+  condition           String
+
+  assignedDoctorId String
+  assignedDoctor   User   @relation("AssignedDoctor", fields: [assignedDoctorId], references: [id], onDelete: Restrict)
+
+  assignedNurses      PatientNurse[]
+  assignmentTimings   Json? // Map<staffId, "09:00 AM"> — display convenience only
+
+  movements MovementLog[]
+  qrToken   String        @unique
+
+  diagnosis String?
+  severity  Severity?
+  vitals    VitalsReading[]
+
+  bloodGroup             String?
+  allergies              String[]
+  emergencyContactName   String?
+  emergencyContactPhone  String?
+  address                String?
+  insuranceProvider      String?
+  insurancePolicyNumber  String?
+
+  aadharNumber             String?
+  dob                      String?
+  state                    String?
+  familyMemberName         String?
+  familyMemberRelationship String?
+  familyMemberPhone        String?
+
+  dischargeDetails DischargeDetail?
+  isDischarged     Boolean          @default(false)
+
+  careEvents    CareEvent[]
+  labReports    LabReport[]
+  notifications Notification[]
+  chatMessages  ChatMessage[]
+  linkedUsers   User[]           @relation("PatientPartyLink")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([assignedDoctorId])
+  @@index([currentLocation])
+  @@index([isDischarged])
+  @@index([createdAt])
+}
+
+// Many-to-many Patient <-> Nurse, carrying the per-assignment timing string.
+model PatientNurse {
+  patientId  String
+  patient    Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  nurseId    String
+  nurse      User    @relation(fields: [nurseId], references: [id], onDelete: Cascade)
+  assignedAt DateTime @default(now())
+  timing     String?
+
+  @@id([patientId, nurseId])
+  @@index([nurseId])
+}
+
+// Latest + historical vitals; one row per capture, queried by patient+time.
+model VitalsReading {
+  id          String   @id @default(cuid())
+  patientId   String
+  patient     Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  hr          Int
+  bpSys       Int
+  bpDia       Int
+  spo2        Int
+  temp        Float
+  resp        Int
+  trend       String? // 'UP' | 'DOWN' | 'STABLE'
+  recordedAt  DateTime @default(now())
+  recordedBy  String? // userId of nurse/staff who submitted
+
+  @@index([patientId, recordedAt])
+}
+
+model MovementLog {
+  id             String   @id @default(cuid())
+  patientId      String
+  patient        Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  fromLocation   String?
+  toLocation     String
+  movedByAdminId String
+  movedByAdmin   User     @relation("MovedByAdmin", fields: [movedByAdminId], references: [id], onDelete: Restrict)
+  timestamp      DateTime @default(now())
+  reason         String?
+
+  @@index([patientId, timestamp])
+}
+
+// ----------------------------------------------------------------------------
+// Care Events
+// ----------------------------------------------------------------------------
+
+model CareEvent {
+  id        String            @id @default(cuid())
+  patientId String
+  patient   Patient           @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  doctorId  String
+  doctor    User              @relation("CareEventDoctor", fields: [doctorId], references: [id], onDelete: Restrict)
+  nurseId   String
+  nurse     User              @relation("CareEventNurse", fields: [nurseId], references: [id], onDelete: Restrict)
+
+  timestamp DateTime          @default(now())
+  priority  CareEventPriority
+  status    CareEventStatus   @default(PENDING)
+  notes     String?
+
+  checks         String[]
+  medications    Json // { name, dose, status }[]
+  scheduledTimes String[]
+
+  startTime    DateTime?
+  completedAt  DateTime?
+  nurseNotes   String?
+  attachments  String[]
+  checklist    Json? // CareEventChecklistItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([patientId, timestamp])
+  @@index([doctorId])
+  @@index([nurseId])
+  @@index([status])
+}
+
+// ----------------------------------------------------------------------------
+// Lab Reports
+// ----------------------------------------------------------------------------
+
+model LabReport {
+  id            String            @id @default(cuid())
+  patientId     String
+  patient       Patient           @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  testName      String
+  category      LabReportCategory
+  date          String
+  timestamp     DateTime          @default(now())
+  status        LabReportStatus   @default(PENDING)
+  doctorName    String
+  resultSummary String
+  data          Json // Record<string, { value, unit, range, flag? }>
+  fileUrl       String?
+
+  createdAt DateTime @default(now())
+
+  @@index([patientId, timestamp])
+  @@index([status])
+}
+
+// ----------------------------------------------------------------------------
+// Discharge
+// ----------------------------------------------------------------------------
+
+model DischargeDetail {
+  id               String        @id @default(cuid())
+  patientId        String        @unique
+  patient          Patient       @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  condition        String
+  notes            String
+  medications      Json // { name, dose, freq, duration, instructions }[]
+  followUpDate     String
+  followUpDept     String
+  followUpDoctor   String
+  followUpNotes    String
+  lifestyleActivity String
+  lifestyleDiet    String
+  lifestyleWound   String
+  lifestyleRestrictions String
+  billingStatus    BillingStatus @default(PENDING)
+  transferMode     String
+  finalizedAt      DateTime      @default(now())
+  doctorSignature  String
+  attachments      String[]
+}
+
+// ----------------------------------------------------------------------------
+// Notifications
+// ----------------------------------------------------------------------------
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  message   String
+  timestamp DateTime         @default(now())
+  read      Boolean          @default(false)
+  type      NotificationType
+  patientId String?
+  patient   Patient?         @relation(fields: [patientId], references: [id], onDelete: SetNull)
+
+  @@index([userId, read])
+  @@index([patientId])
+}
+
+// ----------------------------------------------------------------------------
+// Chat
+// ----------------------------------------------------------------------------
+
+model ChatMessage {
+  id             String          @id @default(cuid())
+  patientId      String
+  patient        Patient         @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  senderId       String
+  sender         User            @relation(fields: [senderId], references: [id], onDelete: Restrict)
+  senderName     String
+  senderRole     UserRole
+  content        String
+  timestamp      DateTime        @default(now())
+  isAttachment   Boolean         @default(false)
+  attachmentType AttachmentType?
+  channel        ChatChannel     @default(TEAM)
+
+  @@index([patientId, channel, timestamp])
+}
+
+// ----------------------------------------------------------------------------
+// Audit Log — every mutation (and sensitive read) gets one row.
+// ----------------------------------------------------------------------------
+
+model AuditLog {
+  id           String   @id @default(cuid())
+  userId       String?
+  user         User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action       String // e.g. "CARE_EVENT_CREATE", "LOGIN_SUCCESS", "PATIENT_UPDATE"
+  resourceType String?
+  resourceId   String?
+  metadata     Json?
+  ipAddress    String?
+  userAgent    String?
+  timestamp    DateTime @default(now())
+
+  @@index([userId, timestamp])
+  @@index([resourceType, resourceId])
+  @@index([timestamp])
+}
