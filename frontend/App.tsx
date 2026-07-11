@@ -3,13 +3,31 @@ import Header from './components/Header';
 import Sidebar from './components/Sidebar';
 import Login from './pages/Login';
 
-const Dashboard = lazy(() => import('./pages/Dashboard'));
-const DoctorDashboard = lazy(() => import('./pages/DoctorDashboard'));
-const NurseDashboard = lazy(() => import('./pages/NurseDashboard'));
-const PatientDetail = lazy(() => import('./pages/PatientDetail'));
-const StaffManagement = lazy(() => import('./pages/StaffManagement'));
+// Retry wrapper for lazy imports — retries up to 3 times on chunk-load failure
+function lazyRetry<T extends React.ComponentType<any>>(
+  factory: () => Promise<{ default: T }>,
+  retries = 3,
+): React.LazyExoticComponent<T> {
+  return lazy(() => {
+    const attempt = (n: number): Promise<{ default: T }> =>
+      factory().catch((err: any) => {
+        if (n <= 0) throw err;
+        return new Promise<{ default: T }>((resolve) =>
+          setTimeout(() => resolve(attempt(n - 1)), 1000),
+        );
+      });
+    return attempt(retries);
+  });
+}
+
+const Dashboard = lazyRetry(() => import('./pages/Dashboard'));
+const DoctorDashboard = lazyRetry(() => import('./pages/DoctorDashboard'));
+const NurseDashboard = lazyRetry(() => import('./pages/NurseDashboard'));
+const PatientDetail = lazyRetry(() => import('./pages/PatientDetail'));
+const StaffManagement = lazyRetry(() => import('./pages/StaffManagement'));
 
 import Loader from './components/Loader';
+import LazyErrorBoundary from './components/LazyErrorBoundary';
 import OfflineBanner from './components/OfflineBanner';
 import { Menu } from 'lucide-react';
 import { UserRole } from './types';
@@ -197,9 +215,11 @@ const AppContent: React.FC = () => {
         )}
         
         <main className={`flex-1 ${isCustomDashboardRole ? 'overflow-hidden' : 'overflow-x-hidden overflow-y-auto'} bg-transparent ${(!showHeader && !isCustomDashboardRole && !isFullHeaderPage) ? 'pt-0' : ''}`}>
-          <Suspense fallback={<Loader />}>
-            {renderContent()}
-          </Suspense>
+          <LazyErrorBoundary>
+            <Suspense fallback={<Loader />}>
+              {renderContent()}
+            </Suspense>
+          </LazyErrorBoundary>
         </main>
       </div>
     </div>

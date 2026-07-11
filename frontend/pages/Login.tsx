@@ -96,12 +96,6 @@ const Login: React.FC<Props> = ({ onLogin }) => {
       return;
     }
 
-    const matchedUser = MOCK_USERS.find(u => u.email?.toLowerCase() === email.trim().toLowerCase());
-    if (matchedUser && password === 'demo_pass_123') {
-      completeMockAuth(matchedUser);
-      return;
-    }
-
     const success = await login(email, password);
     if (success) {
       const loggedInUser = MOCK_USERS.find(u => u.email?.toLowerCase() === email.trim().toLowerCase());

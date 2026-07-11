@@ -85,12 +85,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({ user, isAuthenticated: true });
       persistMockUser(user);
     } catch {
-      const storedUser = getStoredMockUser();
-      if (storedUser) {
-        set({ user: storedUser, isAuthenticated: true });
-      } else {
-        set({ user: null, isAuthenticated: false });
-      }
+      set({ user: null, isAuthenticated: false });
     } finally {
       set({ isLoading: false });
     }
@@ -98,14 +93,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   login: async (email: string, password?: string) => {
     set({ isLoading: true });
-
-    const fallbackUser = resolveMockUser(email, password);
-    if (fallbackUser) {
-      set({ user: fallbackUser, isAuthenticated: true });
-      persistMockUser(fallbackUser);
-      set({ isLoading: false });
-      return true;
-    }
 
     try {
       const { user } = await apiFetch<{ user: User }>('/api/auth/login', {
@@ -117,6 +104,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       return true;
     } catch (err) {
       console.error('Login failed:', err instanceof ApiError ? err.message : err);
+      
       return false;
     } finally {
       set({ isLoading: false });
@@ -125,14 +113,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   loginWithQr: async (qrToken?: string) => {
     set({ isLoading: true });
-
-    const fallbackUser = resolveMockQrUser(qrToken);
-    if (fallbackUser) {
-      set({ user: fallbackUser, isAuthenticated: true });
-      persistMockUser(fallbackUser);
-      set({ isLoading: false });
-      return true;
-    }
 
     try {
       const { user } = await apiFetch<{ user: User }>('/api/auth/login-qr', {
@@ -144,6 +124,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       return true;
     } catch (err) {
       console.error('QR login failed:', err instanceof ApiError ? err.message : err);
+      
       return false;
     } finally {
       set({ isLoading: false });

@@ -4,7 +4,19 @@ import { hashPassword } from '../lib/auth/password';
 
 const DEMO_PASSWORD = 'demo_pass_123';
 
-const DEMO_USERS = [
+type DemoUser = {
+  email: string;
+  name: string;
+  role: UserRole;
+  isOnline: boolean;
+  phone?: string;
+  staffCategory?: string;
+  specialization?: string;
+  department?: string;
+  timings?: string;
+};
+
+const DEMO_USERS: DemoUser[] = [
   {
     email: 'sarah.admin@nexacare.com',
     name: 'Sarah Administrator',
@@ -62,7 +74,7 @@ const DEMO_USERS = [
     role: UserRole.PATIENT_PARTY,
     isOnline: false,
   },
-] as const;
+];
 
 async function main() {
   let created = 0;

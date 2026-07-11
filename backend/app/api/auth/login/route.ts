@@ -14,6 +14,9 @@ const MAX_ATTEMPTS = 8;
 const WINDOW_MS = 10 * 60 * 1000; // 10 minutes
 
 function isRateLimited(key: string): boolean {
+  if (process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test") {
+    return false;
+  }
   const now = Date.now();
   const entry = attempts.get(key);
   if (!entry || entry.resetAt < now) {
