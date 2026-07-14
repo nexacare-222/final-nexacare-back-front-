@@ -61,7 +61,7 @@ export const POST = withAuth(
           qrToken: data.qrToken,
           diagnosis: data.diagnosis,
           severity: data.severity,
-          bloodGroup: data.bloodGroup,
+          bloodGroup: data.bloodGroup as any,
           allergies: data.allergies ?? [],
           emergencyContactName: data.emergencyContactName,
           emergencyContactPhone: data.emergencyContactPhone,

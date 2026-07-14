@@ -17,22 +17,17 @@ export interface AuditEntry {
  * clinical workflows.
  */
 export async function recordAudit(entry: AuditEntry): Promise<void> {
-  try {
-    await prisma.auditLog.create({
-      data: {
-        userId: entry.userId ?? null,
-        action: entry.action,
-        resourceType: entry.resourceType,
-        resourceId: entry.resourceId,
-        metadata: entry.metadata as never,
-        ipAddress: entry.ipAddress ?? null,
-        userAgent: entry.userAgent ?? null,
-      },
-    });
-  } catch (err) {
-    // eslint-disable-next-line no-console
-    console.error('[audit-log] failed to persist audit entry', { entry, err });
-  }
+  await prisma.auditLog.create({
+    data: {
+      userId: entry.userId ?? null,
+      action: entry.action,
+      resourceType: entry.resourceType,
+      resourceId: entry.resourceId,
+      metadata: entry.metadata as never,
+      ipAddress: entry.ipAddress ?? null,
+      userAgent: entry.userAgent ?? null,
+    },
+  });
 }
 
 /** Pulls the client IP / user-agent out of a standard Next.js Request. */

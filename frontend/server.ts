@@ -29,6 +29,13 @@ async function startServer() {
         // here so the Next.js backend receives /api/auth/* instead of /auth/*.
         '^/': '/api/',
       },
+      ws: true,
+      onError: (err, req, res) => {
+        if ('writeHead' in res) {
+          res.writeHead(502, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Backend unavailable' }));
+        }
+      },
       // Every /api/* route (auth, patients, staff, care-events, gemini, ...)
       // now lives in the backend service -- nothing is handled locally here.
     }),
@@ -43,7 +50,13 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
+    app.use(express.static(distPath, {
+      setHeaders: (res, path) => {
+        if (path.endsWith('.html')) {
+          res.setHeader('Cache-Control', 'no-cache');
+        }
+      }
+    }));
     app.get('(.*)', (req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));
     });

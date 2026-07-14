@@ -1,4 +1,5 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
+import { sessionContext } from './auth/sessionContext';
 
 /**
  * Singleton Prisma client.
@@ -13,11 +14,37 @@ import { PrismaClient } from '@prisma/client';
  * accidentally returning `passwordHash` in an API response.
  */
 const prismaClientSingleton = () => {
-  return new PrismaClient({
+  const baseClient = new PrismaClient({
     log: process.env.NODE_ENV === 'development' ? ['warn', 'error'] : ['error'],
     omit: {
       user: {
         passwordHash: true,
+      },
+    },
+  });
+
+  // Prisma Client Extension for Row Level Security (RLS)
+  return baseClient.$extends({
+    query: {
+      $allModels: {
+        async $allOperations({ args, query }) {
+          const session = sessionContext.getStore();
+          
+          // Safeguard: Internal queries, migrations, or unauthenticated requests
+          // bypass RLS context setting.
+          if (!session) return query(args);
+
+          // Execute query within a transaction where session variables are set
+          const [, result] = await baseClient.$transaction([
+            baseClient.$executeRaw`
+              SET LOCAL "app.current_user_id" = ${session.userId};
+              SET LOCAL "app.current_role" = ${session.role};
+            `,
+            query(args),
+          ]);
+          
+          return result;
+        },
       },
     },
   });

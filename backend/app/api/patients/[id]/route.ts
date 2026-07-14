@@ -40,7 +40,7 @@ export const PATCH = withAuth<Ctx>(
 
       const patient = await prisma.patient.update({
         where: { id },
-        data,
+        data: data as any,
         include: patientInclude,
       });
 

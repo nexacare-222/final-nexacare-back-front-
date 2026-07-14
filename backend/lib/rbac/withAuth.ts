@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getAccessTokenCookie } from '../auth/cookies';
 import { verifyAccessToken, type AccessTokenPayload } from '../auth/jwt';
 import { recordAudit, requestMeta } from '../audit/auditLog';
+import { sessionContext } from '../auth/sessionContext';
 
 export type Role = 'ADMIN' | 'DOCTOR' | 'NURSE' | 'PATIENT_PARTY' | 'STAFF';
 
@@ -55,7 +56,18 @@ export function withAuth<Ctx = unknown>(handler: RouteHandler<Ctx>, options: Wit
       linkedPatientId: payload.linkedPatientId ?? null,
     };
 
-    if (options.roles && !options.roles.includes(session.role)) {
+    if (!options.roles || options.roles.length === 0) {
+      await recordAudit({
+        userId: session.userId,
+        action: 'ACCESS_DENIED_NO_ROLES',
+        resourceType: new URL(request.url).pathname,
+        metadata: { actualRole: session.role, method: request.method },
+        ...meta,
+      });
+      return forbidden();
+    }
+
+    if (!options.roles.includes(session.role)) {
       await recordAudit({
         userId: session.userId,
         action: 'ACCESS_DENIED',
@@ -63,10 +75,10 @@ export function withAuth<Ctx = unknown>(handler: RouteHandler<Ctx>, options: Wit
         metadata: { requiredRoles: options.roles, actualRole: session.role, method: request.method },
         ...meta,
       });
-      return forbidden(session.role, options.roles);
+      return forbidden();
     }
 
-    return handler(request, ctx, session);
+    return sessionContext.run(session, () => handler(request, ctx, session));
   };
 }
 
@@ -74,11 +86,11 @@ function unauthorized(reason: string): NextResponse {
   return NextResponse.json({ error: 'Unauthorized', reason }, { status: 401 });
 }
 
-function forbidden(actualRole: Role, requiredRoles: Role[]): NextResponse {
+function forbidden(): NextResponse {
   return NextResponse.json(
     {
       error: 'Forbidden',
-      reason: `Role '${actualRole}' is not permitted to perform this action. Required: ${requiredRoles.join(', ')}.`,
+      reason: 'Access Denied',
     },
     { status: 403 },
   );

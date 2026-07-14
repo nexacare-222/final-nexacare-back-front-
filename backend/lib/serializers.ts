@@ -34,7 +34,7 @@ export function serializeUser(u: Omit<UserRow, 'passwordHash'>) {
     staffCategory: u.staffCategory ?? undefined,
     specialization: u.specialization ?? undefined,
     dob: u.dob ?? undefined,
-    aadharNumber: u.aadharNumber ?? undefined,
+    // aadharNumber stripped for security
     address: u.address ?? undefined,
     timings: u.timings ?? undefined,
     weekSchedule: u.weekSchedule ?? [],
@@ -67,7 +67,7 @@ export function serializePatient(p: PatientWithRelations) {
     assignedNurseIds: (p.assignedNurses ?? []).map((n) => n.nurseId),
     assignmentTimings: (p.assignmentTimings as Record<string, string> | null) ?? {},
     movements: (p.movements ?? []).map(serializeMovement),
-    qrToken: p.qrToken,
+    // qrToken stripped for security
     diagnosis: p.diagnosis ?? undefined,
     severity: p.severity ?? undefined,
     vitals: latestVitals ? serializeVitals(latestVitals) : undefined,
@@ -78,7 +78,7 @@ export function serializePatient(p: PatientWithRelations) {
     address: p.address ?? undefined,
     insuranceProvider: p.insuranceProvider ?? undefined,
     insurancePolicyNumber: p.insurancePolicyNumber ?? undefined,
-    aadharNumber: p.aadharNumber ?? undefined,
+    // aadharNumber stripped for security
     dob: p.dob ?? undefined,
     state: p.state ?? undefined,
     familyMemberName: p.familyMemberName ?? undefined,

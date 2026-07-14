@@ -101,6 +101,24 @@ enum BillingStatus {
   REVIEW
 }
 
+enum BloodGroup {
+  A_POSITIVE
+  A_NEGATIVE
+  B_POSITIVE
+  B_NEGATIVE
+  O_POSITIVE
+  O_NEGATIVE
+  AB_POSITIVE
+  AB_NEGATIVE
+}
+
+enum ShiftTiming {
+  MORNING
+  AFTERNOON
+  EVENING
+  NIGHT
+}
+
 // ----------------------------------------------------------------------------
 // User
 // ----------------------------------------------------------------------------
@@ -201,7 +219,7 @@ model Patient {
   severity  Severity?
   vitals    VitalsReading[]
 
-  bloodGroup             String?
+  bloodGroup             BloodGroup?
   allergies              String[]
   emergencyContactName   String?
   emergencyContactPhone  String?
@@ -241,7 +259,7 @@ model PatientNurse {
   nurseId    String
   nurse      User    @relation(fields: [nurseId], references: [id], onDelete: Cascade)
   assignedAt DateTime @default(now())
-  timing     String?
+  timing     ShiftTiming?
 
   @@id([patientId, nurseId])
   @@index([nurseId])
@@ -277,6 +295,7 @@ model MovementLog {
   reason         String?
 
   @@index([patientId, timestamp])
+  @@index([timestamp])
 }
 
 // ----------------------------------------------------------------------------
@@ -314,6 +333,8 @@ model CareEvent {
   @@index([doctorId])
   @@index([nurseId])
   @@index([status])
+  @@index([nurseId, status])
+  @@index([doctorId, status])
 }
 
 // ----------------------------------------------------------------------------
@@ -414,7 +435,7 @@ model ChatMessage {
 model AuditLog {
   id           String   @id @default(cuid())
   userId       String?
-  user         User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  user         User?    @relation(fields: [userId], references: [id], onDelete: Restrict)
   action       String // e.g. "CARE_EVENT_CREATE", "LOGIN_SUCCESS", "PATIENT_UPDATE"
   resourceType String?
   resourceId   String?

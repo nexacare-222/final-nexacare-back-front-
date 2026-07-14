@@ -49,7 +49,7 @@ export const POST = withAuth<Ctx>(
             assignedNurses: {
               connectOrCreate: {
                 where: { patientId_nurseId: { patientId, nurseId: staffId } },
-                create: { nurseId: staffId, timing: time },
+                create: { nurseId: staffId, timing: time as any },
               },
             },
           },

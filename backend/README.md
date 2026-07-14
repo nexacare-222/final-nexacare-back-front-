@@ -52,3 +52,15 @@ the browser at two different hosts. If you ever do split them onto
 separate origins, switch `backend/lib/auth/cookies.ts` to
 `SameSite=None; Secure` and add CORS with `credentials: true` on the
 backend — `SameSite=Strict` will otherwise silently drop the cookies.
+
+## PostgreSQL Row Level Security (RLS)
+
+NexaCare relies on PostgreSQL Row Level Security to enforce data access at the database level.
+
+**1. Dedicated Database User for Migrations**
+Since RLS policies can block standard schema alterations if not careful, ensure that your migration execution script runs as the owner/superuser account (e.g., `postgres` in Supabase) which naturally bypasses RLS rules during deployment.
+
+**2. Connection Pool Optimization for RLS Transactions**
+Because the Prisma Client Extension forces all operations into an implicit `$transaction` to preserve the `SET LOCAL` variables on the connection, each web request will hold onto database connections slightly longer.
+
+**Action:** Explicitly scale up your Supabase connection pool size (PgBouncer/Supavisor max connections) to account for the increased transactional overhead when deploying to production.

@@ -24,11 +24,6 @@ export const POST = withAuth<Ctx>(
       const body = await request.json().catch(() => null);
       const { toLocation, reason, timeString, assignedStaffId } = parseOrThrow(movementSchema, body);
 
-      const patient = await prisma.patient.findUnique({ where: { id: patientId } });
-      if (!patient) {
-        return NextResponse.json({ error: 'Patient not found' }, { status: 404 });
-      }
-
       let timestamp = new Date();
       if (timeString) {
         const [h, m] = timeString.split(':').map(Number);
@@ -43,13 +38,18 @@ export const POST = withAuth<Ctx>(
         assignedStaff = await prisma.user.findUnique({ where: { id: assignedStaffId } });
       }
 
-      const updatedTimings = {
-        ...((patient.assignmentTimings as Record<string, string> | null) ?? {}),
-        ...(assignedStaffId && timeString ? { [assignedStaffId]: timeString } : {}),
-      };
+      const updatedPatient = await prisma.$transaction(async (tx) => {
+        const patient = await tx.patient.findUnique({ where: { id: patientId } });
+        if (!patient) {
+          throw new Error('Patient not found');
+        }
 
-      const [, updatedPatient] = await prisma.$transaction([
-        prisma.movementLog.create({
+        const updatedTimings = {
+          ...((patient.assignmentTimings as Record<string, string> | null) ?? {}),
+          ...(assignedStaffId && timeString ? { [assignedStaffId]: timeString } : {}),
+        };
+
+        await tx.movementLog.create({
           data: {
             patientId,
             fromLocation: patient.currentLocation,
@@ -58,8 +58,9 @@ export const POST = withAuth<Ctx>(
             timestamp,
             reason,
           },
-        }),
-        prisma.patient.update({
+        });
+
+        const p = await tx.patient.update({
           where: { id: patientId },
           data: {
             currentLocation: toLocation,
@@ -69,34 +70,40 @@ export const POST = withAuth<Ctx>(
               : {}),
           },
           include: patientInclude,
-        }),
-      ]);
+        });
+
+        // Audit inside transaction so failure aborts the move
+        await recordAudit({
+          userId: session.userId,
+          action: 'PATIENT_MOVEMENT',
+          resourceType: 'Patient',
+          resourceId: patientId,
+          metadata: { toLocation, reason },
+          ...meta,
+        });
+
+        return p;
+      });
 
       if (assignedStaffId) {
         await prisma.notification.create({
           data: {
             userId: assignedStaffId,
             title: 'Patient Transfer Assignment',
-            message: `You have been assigned to ${patient.name} during transfer to ${toLocation}. Reason: ${reason}`,
+            message: `You have been assigned to ${updatedPatient.name} during transfer to ${toLocation}. Reason: ${reason}`,
             type: 'ALERT',
             patientId,
           },
         });
       }
 
-      await recordAudit({
-        userId: session.userId,
-        action: 'PATIENT_MOVEMENT',
-        resourceType: 'Patient',
-        resourceId: patientId,
-        metadata: { toLocation, reason },
-        ...meta,
-      });
-
       return NextResponse.json({ patient: serializePatient(updatedPatient) }, { status: 201 });
     } catch (error) {
       if (error instanceof ValidationError) {
         return NextResponse.json({ error: 'Invalid request', details: error.message }, { status: 400 });
+      }
+      if (error instanceof Error && error.message === 'Patient not found') {
+        return NextResponse.json({ error: 'Patient not found' }, { status: 404 });
       }
       // eslint-disable-next-line no-console
       console.error('[patients/:id/movements] error', error);
